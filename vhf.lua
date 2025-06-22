@@ -5,10 +5,10 @@
 --
 -- KEY3: change channel  
 -- KEY1 hold: tv guide
--- KEY2: change sample directory
+-- KEY2: select file (and audio folder)
 -- ENC1: volume
--- ENC2: speed
--- ENC3: pitch
+-- ENC2: speed + softcut1
+-- ENC3: pitch + softcut2
 --
 -- change the channel to begin
 
@@ -29,17 +29,18 @@ cutlength = 2
 lines_x = 0
 lines_y = 0
 
-function callback(file_path) 
+function choosefile(file_path) 
   if file_path ~= 'cancel' then 
     local split_at = string.match(file_path, "^.*()/")
     chosen_directory = string.sub(file_path, 21, split_at)
     chosen_directory = util.trim_string_to_width(chosen_directory, 128)
+    chosen_file = string.sub(file_path, split_at + 1)
     print(chosen_directory)
-    print(selected_file)
+    print(chosen_file)
   end
   channel = channel + 1
   reset_voice()
-  params:set("sample", randomsample())
+  params:set("sample", _path.audio .. chosen_directory .. chosen_file)
   randomparams()
   start_voice()
   screen_dirty = true
@@ -84,7 +85,7 @@ end
 
 function randomcut1()
   softcut.level_cut_cut(1, 2, math.random(0,20) * 0.01)
-  params:set("cut1rate", math.random(-80,80) * 0.1)
+  params:set("cut1rate", math.random(-20,20) * 0.1)
   params:set("cut2pan", math.random(0,10) * 0.1)
   softcut.loop_start(1,math.random(0,100) * 0.1)
   softcut.loop_end(2,math.random(120,200) * 0.1)
@@ -93,26 +94,16 @@ end
 
 function randomcut2()
   softcut.level_cut_cut(2, 1, math.random(0,20) * 0.01)
-  params:set("cut2rate", math.random(-80,80) * 0.1)
+  params:set("cut2rate", math.random(-20,20) * 0.1)
   params:set("cut1pan", math.random(0,10) * -0.1)
-  softcut.loop_start(2,math.random(0,350) * 0.1)
-  softcut.loop_end(1,math.random(400,800) * 0.1)
+  softcut.loop_start(2,math.random(0,100) * 0.1)
+  softcut.loop_end(1,math.random(120,200) * 0.1)
   params:set("cut2level", math.random(0,75) * 0.01)
 end
 
 function init()
   init_softcut()
-  
-  --local SCREEN_FRAMERATE = 15
-  --local screen_refresh_metro = metro.init()
-  --screen_refresh_metro.event = function()
-    --if screen_dirty then
-     -- redraw()
-   -- end
- -- end
-  --screen_refresh_metro:start(1 / SCREEN_FRAMERATE)
  
-  
   local sep = ": "
 
   params:add_taper("reverb_mix", "*"..sep.."mix", 0, 100, 50, 0, "%")
@@ -124,7 +115,7 @@ function init()
   params:add_taper("reverb_damp", "*"..sep.."damp", 0, 100, 50, 0, "%")
   params:set_action("reverb_damp", function(value) engine.reverb_damp(value / 100) end)
   
-  params:add_separator()
+  params:add_separator("vhf sample", "vhf sample")
 
   params:add_file("sample", sep.."sample")
   params:set_action("sample", function(file) engine.read(1, file) end)
@@ -153,7 +144,7 @@ function init()
   params:add_taper("fade", sep.."att / dec", 1, 9000, 1000, 3, "ms")
   params:set_action("fade", function(value) engine.envscale(1, value / 1000) end)
   
-  params:add_separator()
+  params:add_separator("vhf softcut", "vhf softcut")
   
   params:add_control("cut1rate", "Cut1 rate", controlspec.new(-8, 8, 'lin', 0, 0, ""))
   params:set_action("cut1rate", function(x) softcut.rate(1, x) end)
@@ -242,7 +233,7 @@ function key(n, z)
     redraw()
   elseif n == 2 then
     -- select folder
-    fileselect.enter(_path.audio, callback, "audio") 
+    fileselect.enter(_path.audio, choosefile, "audio") 
     
     if z == 1 then
     else
@@ -267,35 +258,6 @@ end
 function printround(num, numDecimalPlaces)
   local mult = 10^(numDecimalPlaces or 0)
   return math.floor(num * mult + 0.5) / mult
-end
-
-function drawtv()
-  --random screen pixels
-  -- local heighta = math.random(1,30)
-  -- local heightb = math.random(31,64)
-  -- for x=1,heighta do
-    -- for i=1,128 do
-      -- screen.level(math.random(0, 4))
-      -- screen.rect(i,x,1,1)
-      --screen.fill()
-    -- end
-  -- end
-  -- for x=heighta+1,heightb-1 do
-    -- for i=1,128 do
-      -- screen.level(math.random(0, 6))
-      -- screen.rect(i,x,1,1)
-      --screen.fill()
-    -- end
-  -- end
-  -- for x=heightb,64 do
-    -- for i=1,128 do
-      -- screen.level(math.random(0, 10))
-      -- screen.rect(i,x,1,1)
-      --screen.fill()
-    -- end
-  -- end
-   --lines_y = math.random(1,64)
-  
 end
 
 function drawlines()
@@ -406,16 +368,11 @@ function redraw()
   screen.clear()
   screen.aa(1)
   screen.line_width(1.0)
-  
-  
   if shift == 0 then
-    --drawtv()
     drawlines()
   else 
     tv_guide()
   end
-
   channel_number()
-  
   screen.update()
 end
